@@ -1,88 +1,90 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import unittest
 from locators import Locators
-import time
+from urls import REGISTER_URL, LOGIN_URL
+from data import VALID_USERNAME, VALID_PASSWORD, INVALID_PASSWORD, generate_email
 
+class TestStellarBurgers(unittest.TestCase):
 
-def generate_email(username):
-    return f"{username}@example.com"
+    @classmethod
+    def setUpClass(cls):
+        cls.driver = webdriver.Chrome()
+        cls.driver.implicitly_wait(10)  # Устанавливаем неявное ожидание
 
+    @classmethod
+    def tearDownClass(cls):
+        cls.driver.quit()
 
-def test_registration():
-    driver = webdriver.Chrome()
-    driver.get("https://stellarburgers.nomoreparties.site/register")
+    def test_registration(self):
+        self.driver.get(REGISTER_URL)
 
-    # Успешная регистрация
-    driver.find_element(By.CSS_SELECTOR, Locators.NAME_INPUT).send_keys("Тест")
-    driver.find_element(By.CSS_SELECTOR, Locators.EMAIL_INPUT).send_keys(generate_email("testtestov1999"))
-    driver.find_element(By.CSS_SELECTOR, Locators.PASSWORD_INPUT).send_keys("123456")
-    driver.find_element(By.CSS_SELECTOR, Locators.REGISTER_BUTTON).click()
+        # Успешная регистрация
+        self.driver.find_element(By.CSS_SELECTOR, Locators.NAME_INPUT).send_keys("Тест")
+        self.driver.find_element(By.CSS_SELECTOR, Locators.EMAIL_INPUT).send_keys(generate_email(VALID_USERNAME))
+        self.driver.find_element(By.CSS_SELECTOR, Locators.PASSWORD_INPUT).send_keys(VALID_PASSWORD)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.REGISTER_BUTTON).click()
 
-    time.sleep(2)  # Ждем загрузки страницы
-    assert "Личный кабинет" in driver.title  # Проверяем вход в личный кабинет
+        WebDriverWait(self.driver, 10).until(EC.title_contains("Личный кабинет"))
+        self.assertIn("Личный кабинет", self.driver.title)
 
-    driver.quit()
+    def test_registration_invalid_password(self):
+        self.driver.get(REGISTER_URL)
 
+        self.driver.find_element(By.CSS_SELECTOR, Locators.NAME_INPUT).send_keys("Тест")
+        self.driver.find_element(By.CSS_SELECTOR, Locators.EMAIL_INPUT).send_keys(generate_email(VALID_USERNAME))
+        self.driver.find_element(By.CSS_SELECTOR, Locators.PASSWORD_INPUT).send_keys(INVALID_PASSWORD)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.REGISTER_BUTTON).click()
 
-def test_registration_invalid_password():
-    driver = webdriver.Chrome()
-    driver.get("https://stellarburgers.nomoreparties.site/register")
+        error_message = WebDriverWait(self.driver, 10).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, Locators.ERROR_MESSAGE))
+        ).text
+        self.assertIn("Пароль должен содержать как минимум 6 символов", error_message)
 
-    # Проверка на некорректный пароль
-    driver.find_element(By.CSS_SELECTOR, Locators.NAME_INPUT).send_keys("Тест")
-    driver.find_element(By.CSS_SELECTOR, Locators.EMAIL_INPUT).send_keys(generate_email("testtestov1999"))
-    driver.find_element(By.CSS_SELECTOR, Locators.PASSWORD_INPUT).send_keys("123")
-    driver.find_element(By.CSS_SELECTOR, Locators.REGISTER_BUTTON).click()
+    def test_login(self):
+        self.driver.get(LOGIN_URL)
 
-    time.sleep(2)  # Ждем сообщения об ошибке
-    error_message = driver.find_element(By.CSS_SELECTOR, Locators.ERROR_MESSAGE).text
-    assert "Пароль должен содержать как минимум 6 символов" in error_message
+        # Вход через кнопку "Войти в аккаунт"
+        self.driver.find_element(By.CSS_SELECTOR, Locators.EMAIL_INPUT).send_keys(generate_email(VALID_USERNAME))
+        self.driver.find_element(By.CSS_SELECTOR, Locators.PASSWORD_INPUT).send_keys(VALID_PASSWORD)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.LOGIN_BUTTON).click()
 
-    driver.quit()
+        WebDriverWait(self.driver, 10).until(EC.title_contains("Личный кабинет"))
+        self.assertIn("Личный кабинет", self.driver.title)
 
+    def test_logout(self):
+        self.driver.get(BASE_URL)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.ACCOUNT_BUTTON).click()
+        self.driver.find_element(By.CSS_SELECTOR, Locators.LOGOUT_BUTTON).click()
 
-def test_login():
-    driver = webdriver.Chrome()
-    driver.get("https://stellarburgers.nomoreparties.site/login")
+        WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, Locators.LOGIN_BUTTON)))
+        self.assertIn("Войти в аккаунт", self.driver.page_source)
 
-    driver.find_element(By.CSS_SELECTOR, Locators.EMAIL_INPUT).send_keys(generate_email("testtestov1999"))
-    driver.find_element(By.CSS_SELECTOR, Locators.PASSWORD_INPUT).send_keys("123456")
-    driver.find_element(By.CSS_SELECTOR, Locators.LOGIN_BUTTON).click()
+    def test_constructor_navigation_buns(self):
+        self.driver.get(BASE_URL)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.CONSTRUCTOR_LINK).click()
+        self.driver.find_element(By.CSS_SELECTOR, Locators.BUNS_TAB).click()
 
-    time.sleep(2)  # Ждем загрузки страницы
-    assert "Личный кабинет" in driver.title  # Проверяем вход в личный кабинет
+        WebDriverWait(self.driver, 10).until(EC.url_contains("buns"))
+        self.assertEqual(self.driver.current_url, f"{BASE_URL}/constructor#buns")  # Проверка URL
 
-    driver.quit()
+    def test_constructor_navigation_sauces(self):
+        self.driver.get(BASE_URL)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.CONSTRUCTOR_LINK).click()
+        self.driver.find_element(By.CSS_SELECTOR, Locators.SAUCES_TAB).click()
 
+        WebDriverWait(self.driver, 10).until(EC.url_contains("sauces"))
+        self.assertEqual(self.driver.current_url, f"{BASE_URL}/constructor#sauces")  # Проверка URL
 
-def test_logout():
-    driver = webdriver.Chrome()
-    driver.get("https://stellarburgers.nomoreparties.site")
+    def test_constructor_navigation_toppings(self):
+        self.driver.get(BASE_URL)
+        self.driver.find_element(By.CSS_SELECTOR, Locators.CONSTRUCTOR_LINK).click()
+        self.driver.find_element(By.CSS_SELECTOR, Locators.TOPPINGS_TAB).click()
 
-    driver.find_element(By.CSS_SELECTOR, Locators.ACCOUNT_BUTTON).click()
-    driver.find_element(By.CSS_SELECTOR, Locators.LOGOUT_BUTTON).click()
+        WebDriverWait(self.driver, 10).until(EC.url_contains("toppings"))
+        self.assertEqual(self.driver.current_url, f"{BASE_URL}/constructor#toppings")  # Проверка URL
 
-    time.sleep(2)  # Ждем завершения выхода
-    assert "Войти в аккаунт" in driver.page_source  # Проверяем наличие кнопки "Войти"
-
-    driver.quit()
-
-
-def test_constructor_navigation():
-    driver = webdriver.Chrome()
-    driver.get("https://stellarburgers.nomoreparties.site")
-
-    driver.find_element(By.CSS_SELECTOR, Locators.CONSTRUCTOR_LINK).click()
-    time.sleep(2)  # Ждем загрузки конструктора
-
-    # Проверка навигации
-    driver.find_element(By.CSS_SELECTOR, Locators.BUNS_TAB).click()
-    assert "Булки" in driver.page_source  # Проверяем, что открылась вкладка "Булки"
-
-    driver.find_element(By.CSS_SELECTOR, Locators.SAUCES_TAB).click()
-    assert "Соусы" in driver.page_source  # Проверяем, что открылась вкладка "Соусы"
-
-    driver.find_element(By.CSS_SELECTOR, Locators.TOPPINGS_TAB).click()
-    assert "Начинки" in driver.page_source  # Проверяем, что открылась вкладка "Начинки"
-
-    driver.quit()
+if __name__ == "__main__":
+    unittest.main()
